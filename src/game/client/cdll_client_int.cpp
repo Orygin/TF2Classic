@@ -147,6 +147,11 @@
 #include "fbxsystem/fbxsystem.h"
 #endif
 
+#ifdef NEBULEUSE
+#include "nebuleuse.h"
+#include <sstream>
+#endif
+
 extern vgui::IInputInternal *g_InputInternal;
 
 //=============================================================================
@@ -216,6 +221,10 @@ IReplaySystem *g_pReplay = NULL;
 #endif
 
 IHaptics* haptics = NULL;// NVNT haptics system interface singleton
+
+#ifdef NEBULEUSE
+Neb::Nebuleuse *nebuleuse = NULL;
+#endif
 
 //=============================================================================
 // HPE_BEGIN
@@ -1083,6 +1092,35 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 #endif
 #ifndef _X360
 	HookHapticMessages(); // Always hook the messages
+#endif
+
+#ifdef NEBULEUSE
+	nebuleuse = new Neb::Nebuleuse("http://127.0.0.1:8080", 1);
+
+	nebuleuse->SetLogCallBack([](std::string l) {
+		Msg(l.c_str());
+	});
+	nebuleuse->SetErrorCallBack([](Neb::NebuleuseError err, std::string msg){
+		Msg(msg.c_str());
+	});
+	nebuleuse->SetConnectCallback([](bool success){
+		Msg("Connected to Nebuleuse\n");
+		Msg(nebuleuse->GetAchievement(1).Name.c_str());
+		Msg("%d", nebuleuse->GetUserStats("kills"));
+		Neb::ComplexStat stat("kills");
+		stat.AddValue("x", "1");
+		stat.AddValue("y", "2");
+		stat.AddValue("z", "1");
+		stat.AddValue("weapon", "i");
+		stat.AddValue("map", "aa");
+		nebuleuse->AddComplexStat(stat);
+		nebuleuse->SendComplexStats();
+	});
+	if (nebuleuse->Init()){
+		std::ostringstream o;
+		o << steamapicontext->SteamUser()->GetSteamID().ConvertToUint64();
+		nebuleuse->Connect(o.str(), o.str());
+	}
 #endif
 
 	return true;
